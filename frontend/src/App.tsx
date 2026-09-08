@@ -15,7 +15,7 @@ export const App: React.FC = () => {
   const [corners, setCorners] = useState<CornerItem[]>([]);
   const [selectedCornerId, setSelectedCornerId] = useState<string>('RBR-T9');
   const [activeIncidentId, setActiveIncidentId] = useState<string | null>(null);
-  const [, setPendingIncidentsCount] = useState<number>(0);
+  const [pendingIncidentsCount, setPendingIncidentsCount] = useState<number>(0);
   const [isLiveStreaming, setIsLiveStreaming] = useState<boolean>(false);
   const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
   const [liveStreamMode, setLiveStreamMode] = useState<'synthetic' | 'live_analysis'>('synthetic');
@@ -72,6 +72,14 @@ export const App: React.FC = () => {
     <div className="min-h-screen bg-[#0b0b0f] text-gray-100 flex flex-col font-sans">
       {/* Top Header Navigation */}
       <HeaderNav
+        currentMode={currentMode}
+        onSelectMode={(mode) => {
+          if (mode === 'LIVE_STEWARD' && !activeVideoId) {
+            setLiveStreamMode('synthetic');
+          }
+          setCurrentMode(mode);
+        }}
+        pendingIncidentsCount={pendingIncidentsCount}
         isLiveStreaming={isLiveStreaming}
         selectedDriverNumber={selectedDriverNumber}
         onSelectDriver={setSelectedDriverNumber}
