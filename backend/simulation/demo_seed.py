@@ -27,16 +27,6 @@ TEAM_METADATA = {
 
 DRIVERS = [
     {
-        "driver_id": "hulkenberg",
-        "number": 27,
-        "code": "HUL",
-        "first_name": "Nico",
-        "last_name": "Hülkenberg",
-        "display": "#27 NICO HÜLKENBERG",
-        "team": "Haas F1 Team",
-        "is_active_2026_race_driver": True
-    },
-    {
         "driver_id": "ocon",
         "number": 31,
         "code": "OCO",
@@ -201,7 +191,6 @@ def run_demo_simulation(
     }
 
     driver_map = {
-        27: ("#27 NICO HÜLKENBERG", "HUL"),
         31: ("#31 ESTEBAN OCON", "OCO"),
         87: ("#87 OLLIE BEARMAN", "BEA"),
         4: ("#4 LANDO NORRIS", "NOR")
