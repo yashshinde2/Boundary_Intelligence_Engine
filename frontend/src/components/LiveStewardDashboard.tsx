@@ -11,7 +11,6 @@ import {
   Pause, 
   CheckCircle
 } from 'lucide-react';
-import { TelemetryCharts } from './TelemetryCharts';
 import { API_URL, WS_URL } from '../config';
 
 interface LiveStewardDashboardProps {
@@ -262,9 +261,17 @@ export const LiveStewardDashboard: React.FC<LiveStewardDashboardProps> = ({
 
   const isRealVideo = mode === 'live_analysis' && Boolean(activeVideoId);
 
+  const telemetry = frameData?.telemetry;
+  const physicsMetrics = [
+    { label: 'Speed', value: `${telemetry?.speed_kmh ?? 0} km/h`, tone: 'text-cyan-300' },
+    { label: 'Lateral G', value: `${telemetry?.lateral_g ?? 0} G`, tone: 'text-amber-300' },
+    { label: 'Throttle', value: `${telemetry?.throttle_pct ?? 0}%`, tone: 'text-emerald-300' },
+    { label: 'Steering', value: `${telemetry?.steering_deg ?? 0}°`, tone: 'text-violet-300' },
+  ];
+
   return (
-    <div className="p-5 max-w-7xl mx-auto space-y-5">
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+    <div className="mx-auto max-w-7xl space-y-5 p-5">
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <div className={`rounded-xl border p-3 ${
           frameData?.state === 'VIOLATION'
             ? 'border-red-500/50 bg-red-950/20'
@@ -274,24 +281,24 @@ export const LiveStewardDashboard: React.FC<LiveStewardDashboardProps> = ({
             ? 'border-cyan-500/50 bg-cyan-950/20'
             : 'border-emerald-500/40 bg-emerald-950/20'
         }`}>
-          <div className="text-[10px] uppercase tracking-[0.18em] text-gray-400">State</div>
+          <div className="text-[10px] uppercase tracking-[0.18em] text-gray-400">System state</div>
           <div className={`mt-1 text-xl font-black ${
             frameData?.state === 'VIOLATION' ? 'text-red-500' : frameData?.state === 'BORDERLINE' ? 'text-amber-400' : frameData?.state === 'RECOVERED' ? 'text-cyan-400' : 'text-emerald-400'
           }`}>{frameData?.state ?? 'SAFE'}</div>
         </div>
 
         <div className="rounded-xl border border-[#222232] bg-[#101018] p-3">
-          <div className="text-[10px] uppercase tracking-[0.18em] text-gray-400">Wheels out</div>
-          <div className="mt-1 text-xl font-black font-mono text-white">{frameData?.footprint?.wheels_out_count ?? 0}/4</div>
-        </div>
-
-        <div className="rounded-xl border border-[#222232] bg-[#101018] p-3">
-          <div className="text-[10px] uppercase tracking-[0.18em] text-gray-400">Margin</div>
+          <div className="text-[10px] uppercase tracking-[0.18em] text-gray-400">Boundary margin</div>
           <div className={`mt-1 text-xl font-black font-mono ${
             (frameData?.margin_to_boundary_cm ?? 0) < 0 ? 'text-red-500' : (frameData?.margin_to_boundary_cm ?? 0) <= 15 ? 'text-amber-400' : 'text-emerald-400'
           }`}>
             {(frameData?.margin_to_boundary_cm ?? 0) > 0 ? '+' : ''}{frameData?.margin_to_boundary_cm ?? 0}cm
           </div>
+        </div>
+
+        <div className="rounded-xl border border-[#222232] bg-[#101018] p-3">
+          <div className="text-[10px] uppercase tracking-[0.18em] text-gray-400">Wheels out</div>
+          <div className="mt-1 text-xl font-black font-mono text-white">{frameData?.footprint?.wheels_out_count ?? 0}/4</div>
         </div>
 
         <div className="rounded-xl border border-[#222232] bg-[#101018] p-3">
@@ -301,28 +308,28 @@ export const LiveStewardDashboard: React.FC<LiveStewardDashboardProps> = ({
       </div>
 
       {adjudicationSuccess && (
-        <div className="rounded-lg border border-emerald-500/60 bg-emerald-600/15 px-4 py-2 text-sm font-medium text-emerald-200 flex items-center justify-between">
+        <div className="flex items-center justify-between rounded-lg border border-emerald-500/60 bg-emerald-600/15 px-4 py-2 text-sm font-medium text-emerald-200">
           <span className="flex items-center gap-2"><CheckCircle className="w-4 h-4" />{adjudicationSuccess}</span>
           <span className="text-[10px] uppercase tracking-[0.2em] text-emerald-300/80">FIA logged</span>
         </div>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1.6fr_0.9fr] gap-5">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.65fr_0.95fr]">
         <section className="rounded-2xl border border-[#222232] bg-[#0d0d13] p-3">
           <div className="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-[0.18em] text-gray-300">
               <Radio className="w-3.5 h-3.5 text-red-500" />
               {isRealVideo ? 'LIVE VIDEO' : 'SIM FEED'}
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              {corners.map((c) => (
+            <div className="flex items-center gap-2">
+              {corners.slice(0, 5).map((c) => (
                 <button
                   key={c.corner_id}
                   onClick={() => onSelectCorner(c.corner_id)}
-                  className={`px-2 py-1 rounded text-[10px] font-mono font-bold border ${
+                  className={`rounded px-2 py-1 text-[10px] font-mono font-bold border ${
                     selectedCornerId === c.corner_id
-                      ? 'bg-red-600 text-white border-red-500'
-                      : 'bg-[#101018] text-gray-400 border-[#222232]'
+                      ? 'border-red-500 bg-red-600 text-white'
+                      : 'border-[#222232] bg-[#101018] text-gray-400'
                   }`}
                 >
                   T{c.turn_number}
@@ -331,15 +338,12 @@ export const LiveStewardDashboard: React.FC<LiveStewardDashboardProps> = ({
             </div>
           </div>
 
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <div className="text-[10px] uppercase tracking-[0.18em] text-gray-400">
-              {frameData?.timestamp_str ?? '00:32:17.40'} • Lap {frameData?.lap ?? 12}
-            </div>
+          <div className="mb-3 flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.18em] text-gray-400">
+            <span>{frameData?.timestamp_str ?? '00:32:17.40'} • Lap {frameData?.lap ?? 12}</span>
             <div className="flex items-center gap-2">
-              <button onClick={() => setShowOverlays(!showOverlays)} className={`px-2 py-1 rounded text-[10px] ${showOverlays ? 'bg-cyan-500/15 text-cyan-300' : 'bg-[#121218] text-gray-400'}`}>Boundary</button>
-              <button onClick={() => setShowFootprint(!showFootprint)} className={`px-2 py-1 rounded text-[10px] ${showFootprint ? 'bg-emerald-500/15 text-emerald-300' : 'bg-[#121218] text-gray-400'}`}>Footprint</button>
-              <button onClick={() => setShowCompanion(!showCompanion)} className={`px-2 py-1 rounded text-[10px] ${showCompanion ? 'bg-blue-500/15 text-blue-300' : 'bg-[#121218] text-gray-400'}`}>Safe car</button>
-              <button onClick={() => setIsPaused(!isPaused)} className="p-1.5 rounded border border-[#2b2b3a] bg-[#181821] text-white">{isPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}</button>
+              <button onClick={() => setShowOverlays(!showOverlays)} className={`rounded px-2 py-1 ${showOverlays ? 'bg-cyan-500/15 text-cyan-300' : 'bg-[#121218] text-gray-400'}`}>Boundary</button>
+              <button onClick={() => setShowFootprint(!showFootprint)} className={`rounded px-2 py-1 ${showFootprint ? 'bg-emerald-500/15 text-emerald-300' : 'bg-[#121218] text-gray-400'}`}>Footprint</button>
+              <button onClick={() => setIsPaused(!isPaused)} className="rounded border border-[#2b2b3a] bg-[#181821] p-1.5 text-white">{isPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}</button>
             </div>
           </div>
 
@@ -355,10 +359,7 @@ export const LiveStewardDashboard: React.FC<LiveStewardDashboardProps> = ({
                       <div className="text-[11px] font-mono text-red-100">{frameData.driver_name} • {frameData.margin_to_boundary_cm}cm • {frameData.consecutive_outside} frames</div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => handleQuickAdjudicate('CONFIRM')} className="rounded bg-white px-2 py-1 text-[10px] font-bold text-red-700">Delete lap</button>
-                    <button onClick={() => onOpenIncidentReview(frameData.car_number === 27 ? 'AUT2024-RACE-0027' : 'AUT2024-RACE-0031')} className="rounded border border-red-200 bg-red-900 px-2 py-1 text-[10px] font-bold">Dossier</button>
-                  </div>
+                  <button onClick={() => handleQuickAdjudicate('CONFIRM')} className="rounded bg-white px-2 py-1 text-[10px] font-bold text-red-700">Delete lap</button>
                 </div>
               </div>
             )}
@@ -368,26 +369,35 @@ export const LiveStewardDashboard: React.FC<LiveStewardDashboardProps> = ({
         <aside className="space-y-4">
           <div className="rounded-2xl border border-[#222232] bg-[#0d0d13] p-4">
             <div className="mb-3 flex items-center justify-between border-b border-[#1f1f2c] pb-2">
-              <div className="text-[10px] uppercase tracking-[0.18em] text-gray-400">Compliance summary</div>
-              <span className="text-[10px] font-mono text-cyan-300">FIA_ALL_FOUR</span>
+              <div className="text-[10px] uppercase tracking-[0.18em] text-gray-400">Physics outcome</div>
+              <span className="text-[10px] font-mono text-cyan-300">{frameData?.confidence?.verdict ?? 'HIGH CONFIDENCE'}</span>
             </div>
-            <div className="space-y-2 text-xs text-gray-300">
-              <div className="flex justify-between"><span>Driver</span><span className="font-mono text-white">#{frameData?.vehicle_id ?? selectedDriverNumber}</span></div>
-              <div className="flex justify-between"><span>Corner</span><span className="font-mono text-white">T{corners.find(c => c.corner_id === selectedCornerId)?.turn_number ?? '9'}</span></div>
-              <div className="flex justify-between"><span>Boundary</span><span className={((frameData?.margin_to_boundary_cm ?? 0) < 0 ? 'text-red-400' : 'text-emerald-400')}>{(frameData?.margin_to_boundary_cm ?? 0) < 0 ? 'Excursion' : 'Legal'}</span></div>
-            </div>
-            <div className="mt-3 grid grid-cols-4 gap-2">
-              {[
-                ['FL', frameData?.footprint?.fl_inside],
-                ['FR', frameData?.footprint?.fr_inside],
-                ['RL', frameData?.footprint?.rl_inside],
-                ['RR', frameData?.footprint?.rr_inside],
-              ].map(([wheel, inside]) => (
-                <div key={String(wheel)} className="rounded-md border border-[#222232] bg-[#101018] p-2 text-center">
-                  <div className="text-[9px] uppercase tracking-[0.16em] text-gray-400">{wheel}</div>
-                  <div className={`mt-1 text-xs font-bold ${inside ? 'text-emerald-400' : 'text-red-400'}`}>{inside ? 'IN' : 'OUT'}</div>
+
+            <div className="grid grid-cols-2 gap-2">
+              {physicsMetrics.map((metric) => (
+                <div key={metric.label} className="rounded-lg border border-[#1f1f2c] bg-[#101018] p-2.5">
+                  <div className="text-[9px] uppercase tracking-[0.16em] text-gray-400">{metric.label}</div>
+                  <div className={`mt-1 text-base font-black font-mono ${metric.tone}`}>{metric.value}</div>
                 </div>
               ))}
+            </div>
+
+            <div className="mt-4 rounded-lg border border-[#222232] bg-[#101018] p-3 text-sm text-gray-300">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-gray-400">Rule result</div>
+              <div className="mt-2 flex items-center justify-between">
+                <span className="font-medium text-white">Driver</span>
+                <span className="font-mono text-white">#{frameData?.vehicle_id ?? selectedDriverNumber}</span>
+              </div>
+              <div className="mt-1 flex items-center justify-between">
+                <span className="font-medium text-white">Corner</span>
+                <span className="font-mono text-white">T{corners.find(c => c.corner_id === selectedCornerId)?.turn_number ?? '9'}</span>
+              </div>
+              <div className="mt-1 flex items-center justify-between">
+                <span className="font-medium text-white">Verdict</span>
+                <span className={((frameData?.margin_to_boundary_cm ?? 0) < 0 ? 'text-red-400' : 'text-emerald-400')}>
+                  {(frameData?.margin_to_boundary_cm ?? 0) < 0 ? 'Excursion' : 'Legal'}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -400,28 +410,7 @@ export const LiveStewardDashboard: React.FC<LiveStewardDashboardProps> = ({
           </div>
 
           <div className="rounded-2xl border border-[#222232] bg-[#0d0d13] p-4">
-            <div className="mb-3 text-[10px] uppercase tracking-[0.18em] text-gray-400">Signal confidence</div>
-            <div className="space-y-3 text-[10px]">
-              {[
-                ['Detection', frameData?.confidence?.detection ?? 0.98, 'bg-cyan-400'],
-                ['Tracking', frameData?.confidence?.tracking ?? 0.97, 'bg-blue-400'],
-                ['Boundary', frameData?.confidence?.boundary_evidence ?? 0.99, 'bg-emerald-400'],
-              ].map(([label, value, color]) => (
-                <div key={label as string}>
-                  <div className="mb-1 flex justify-between text-gray-300"><span>{label}</span><span className="font-mono text-white">{(Number(value) * 100).toFixed(0)}%</span></div>
-                  <div className="h-1.5 rounded-full bg-[#181821]">
-                    <div className={`h-full rounded-full ${color}`} style={{ width: `${Number(value) * 100}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-[#222232] bg-[#0d0d13] p-4">
-            <div className="mb-3 flex items-center justify-between border-b border-[#1f1f2c] pb-2">
-              <div className="text-[10px] uppercase tracking-[0.18em] text-gray-400">Incident queue</div>
-              <span className="text-[10px] font-mono text-amber-300">{recentIncidents.filter(i => i.status === 'PENDING_REVIEW').length} pending</span>
-            </div>
+            <div className="mb-3 text-[10px] uppercase tracking-[0.18em] text-gray-400">Incident queue</div>
             {recentIncidents.slice(0, 3).map((inc) => (
               <button
                 key={inc.incident_id}
@@ -438,12 +427,6 @@ export const LiveStewardDashboard: React.FC<LiveStewardDashboardProps> = ({
           </div>
         </aside>
       </div>
-
-      {frameData?.telemetry && (
-        <div className="rounded-2xl border border-[#222232] bg-[#0d0d13] p-3">
-          <TelemetryCharts currentTelemetry={frameData.telemetry} />
-        </div>
-      )}
     </div>
   );
 };
