@@ -113,7 +113,6 @@ export const App: React.FC = () => {
               corners={corners}
               selectedCornerId={selectedCornerId}
               onSelectCorner={setSelectedCornerId}
-              onOpenIncidentReview={setActiveIncidentId}
               onSetLiveStreaming={setIsLiveStreaming}
               activeVideoId={activeVideoId}
               mode={liveStreamMode}

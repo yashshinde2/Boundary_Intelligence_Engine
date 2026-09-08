@@ -17,7 +17,6 @@ interface LiveStewardDashboardProps {
   corners: CornerItem[];
   selectedCornerId: string;
   onSelectCorner: (id: string) => void;
-  onOpenIncidentReview: (incidentId: string) => void;
   onSetLiveStreaming: (isStreaming: boolean) => void;
   activeVideoId?: string | null;
   mode?: 'synthetic' | 'live_analysis';
@@ -28,7 +27,6 @@ export const LiveStewardDashboard: React.FC<LiveStewardDashboardProps> = ({
   corners,
   selectedCornerId,
   onSelectCorner,
-  onOpenIncidentReview,
   onSetLiveStreaming,
   activeVideoId = null,
   mode = 'synthetic',
@@ -409,22 +407,6 @@ export const LiveStewardDashboard: React.FC<LiveStewardDashboardProps> = ({
             </div>
           </div>
 
-          <div className="rounded-2xl border border-[#222232] bg-[#0d0d13] p-4">
-            <div className="mb-3 text-[10px] uppercase tracking-[0.18em] text-gray-400">Incident queue</div>
-            {recentIncidents.slice(0, 3).map((inc) => (
-              <button
-                key={inc.incident_id}
-                onClick={() => onOpenIncidentReview(inc.incident_id)}
-                className="mb-2 block w-full rounded-lg border border-[#222232] bg-[#101018] p-2 text-left hover:border-red-600/50"
-              >
-                <div className="flex justify-between text-[10px] text-gray-300">
-                  <span className="font-mono">{inc.incident_id}</span>
-                  <span className="text-red-400">{inc.status.replace('_', ' ')}</span>
-                </div>
-                <div className="mt-1 text-[11px] text-gray-400">Lap {inc.lap} • Car #{inc.vehicle_id} • {inc.min_margin_cm}cm</div>
-              </button>
-            ))}
-          </div>
         </aside>
       </div>
     </div>
