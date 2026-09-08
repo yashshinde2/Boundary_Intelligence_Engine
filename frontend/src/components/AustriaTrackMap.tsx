@@ -49,7 +49,9 @@ export const AustriaTrackMap: React.FC<AustriaTrackMapProps> = ({
 
   const pathRef = useRef<SVGPathElement | null>(null);
   const animFrameRef = useRef<number | null>(null);
-  const lastTimeRef = useRef<number>(performance.now());
+  const lastTimeRef = useRef<number>(0);
+  const renderAccumulatorRef = useRef(0);
+  const totalLengthRef = useRef<number | null>(null);
 
   // Authentic 2024 Austrian GP Race Day Drivers (Session 9550, Lap 12)
   const [cars, setCars] = useState<LiveTrackCar[]>([
@@ -145,13 +147,24 @@ export const AustriaTrackMap: React.FC<AustriaTrackMapProps> = ({
 
   // Main 60 FPS RequestAnimationFrame Simulation Loop on Real Track Geometry
   useEffect(() => {
+    lastTimeRef.current = performance.now();
+    renderAccumulatorRef.current = 0;
+
     const animate = (now: number) => {
       const dt = (now - lastTimeRef.current) / 1000.0;
       lastTimeRef.current = now;
 
       if (isPlaying && pathRef.current) {
         const pathEl = pathRef.current;
-        const totalLength = pathEl.getTotalLength();
+        renderAccumulatorRef.current += dt;
+        if (renderAccumulatorRef.current < 1 / 30) {
+          animFrameRef.current = requestAnimationFrame(animate);
+          return;
+        }
+        const simulationDt = renderAccumulatorRef.current;
+        renderAccumulatorRef.current = 0;
+        const totalLength = totalLengthRef.current ?? pathEl.getTotalLength();
+        totalLengthRef.current = totalLength;
 
         setCars(prevCars => {
           let flaggedViolation: LiveTrackCar | null = null;
@@ -182,7 +195,7 @@ export const AustriaTrackMap: React.FC<AustriaTrackMapProps> = ({
 
             // Real Lap Duration: ~68.4 seconds (Austrian GP Race Lap)
             const lapDurationSec = 68.4;
-            const progressDelta = (dt * simSpeed * (baseSpeed / 220.0)) / lapDurationSec;
+            const progressDelta = (simulationDt * simSpeed * (baseSpeed / 220.0)) / lapDurationSec;
             let newProgress = (car.progress + progressDelta) % 1.0;
             let newLap = car.lap;
             if (newProgress < car.progress) {
@@ -574,7 +587,7 @@ export const AustriaTrackMap: React.FC<AustriaTrackMapProps> = ({
               <g 
                 key={pin.id} 
                 onClick={() => onSelectCorner(pin.id)}
-                className="cursor-pointer transition-transform hover:scale-110"
+                className="cursor-pointer"
               >
                 {/* Outer Ring */}
                 <circle
