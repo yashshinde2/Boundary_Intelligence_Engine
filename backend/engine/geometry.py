@@ -18,18 +18,63 @@ class GeometryEngine:
         :param legal_polygon_coords: List of [x, y] points defining the legal racing surface
         :param pixels_to_cm_scale: Real-world scale factor (cm per pixel)
         """
-        self.legal_polygon = Polygon(legal_polygon_coords)
+        self.scale = float(pixels_to_cm_scale)
+        self.legal_polygon = self._normalize_polygon(legal_polygon_coords)
         self.boundary_linestring = LineString(self.legal_polygon.exterior.coords)
-        self.scale = pixels_to_cm_scale  # e.g., 1 pixel = 0.5 cm
-        
+
         # State machine tracking per vehicle
         self.vehicle_states: Dict[int, TrackLimitState] = {}
         self.consecutive_outside_counts: Dict[int, int] = {}
         self.consecutive_inside_counts: Dict[int, int] = {}
 
+    @staticmethod
+    def _normalize_polygon(legal_polygon_coords: List[List[float]]) -> Polygon:
+        if len(legal_polygon_coords) < 3:
+            raise ValueError("A legal track polygon requires at least 3 vertices.")
+
+        points = [(float(x), float(y)) for x, y in legal_polygon_coords]
+        if points[0] != points[-1]:
+            points.append(points[0])
+
+        polygon = Polygon(points)
+        if polygon.is_empty or polygon.area <= 0:
+            raise ValueError("Legal track polygon is empty or degenerate.")
+
+        return polygon
+
     def update_boundary(self, legal_polygon_coords: List[List[float]]):
-        self.legal_polygon = Polygon(legal_polygon_coords)
+        self.legal_polygon = self._normalize_polygon(legal_polygon_coords)
         self.boundary_linestring = LineString(self.legal_polygon.exterior.coords)
+
+    def _build_wheel_points(self, bbox: List[float], heading_angle_deg: Optional[float] = None) -> Dict[str, Tuple[float, float]]:
+        x1, y1, x2, y2 = bbox
+        width = max(x2 - x1, 1.0)
+        height = max(y2 - y1, 1.0)
+
+        local_offsets = {
+            "fl": (-0.18 * width, -0.20 * height),
+            "fr": (0.18 * width, -0.20 * height),
+            "rl": (-0.18 * width, 0.18 * height),
+            "rr": (0.18 * width, 0.18 * height),
+        }
+
+        cx = (x1 + x2) / 2.0
+        cy = (y1 + y2) / 2.0
+        theta = math.radians(heading_angle_deg or 0.0)
+        cos_t = math.cos(theta)
+        sin_t = math.sin(theta)
+
+        wheel_points: Dict[str, Tuple[float, float]] = {}
+        for name, (dx, dy) in local_offsets.items():
+            px = dx + (cx if name in {"fr", "rr"} else cx)
+            py = dy + cy
+            rx = px - cx
+            ry = py - cy
+            qx = cx + (rx * cos_t - ry * sin_t)
+            qy = cy + (rx * sin_t + ry * cos_t)
+            wheel_points[name] = (qx, qy)
+
+        return wheel_points
 
     def calculate_wheel_footprint(
         self,
@@ -38,8 +83,8 @@ class GeometryEngine:
         wheel_coords: Optional[Dict[str, Tuple[float, float]]] = None
     ) -> WheelFootprint:
         """
-        Calculates 4 contact patch points (FL, FR, RL, RR) based on vehicle bounding box [x1, y1, x2, y2]
-        or explicit rotated wheel coordinates dict {'fl': (x, y), 'fr': (x, y), 'rl': (x, y), 'rr': (x, y)}.
+        Calculates 4 contact patch points (FL, FR, RL, RR) based on a vehicle bbox
+        or explicit rotated wheel coordinates dict {'fl': (x, y), ...}.
         """
         if wheel_coords:
             fl = tuple(wheel_coords.get("fl", (0.0, 0.0)))
@@ -47,35 +92,18 @@ class GeometryEngine:
             rl = tuple(wheel_coords.get("rl", (0.0, 0.0)))
             rr = tuple(wheel_coords.get("rr", (0.0, 0.0)))
         else:
-            x1, y1, x2, y2 = bbox
-            w = x2 - x1
-            h = y2 - y1
+            wheel_points = self._build_wheel_points(bbox, heading_angle_deg)
+            fl = wheel_points["fl"]
+            fr = wheel_points["fr"]
+            rl = wheel_points["rl"]
+            rr = wheel_points["rr"]
 
-            # Standard contact patch offsets relative to bounding box
-            fl = (x1 + w * 0.15, y1 + h * 0.20)
-            fr = (x2 - w * 0.15, y1 + h * 0.20)
-            rl = (x1 + w * 0.15, y2 - h * 0.15)
-            rr = (x2 - w * 0.15, y2 - h * 0.15)
+        fl_in = self.legal_polygon.covers(Point(fl))
+        fr_in = self.legal_polygon.covers(Point(fr))
+        rl_in = self.legal_polygon.covers(Point(rl))
+        rr_in = self.legal_polygon.covers(Point(rr))
 
-        fl_pt = Point(fl)
-        fr_pt = Point(fr)
-        rl_pt = Point(rl)
-        rr_pt = Point(rr)
-
-        fl_in = self.legal_polygon.contains(fl_pt)
-        fr_in = self.legal_polygon.contains(fr_pt)
-        rl_in = self.legal_polygon.contains(rl_pt)
-        rr_in = self.legal_polygon.contains(rr_pt)
-
-        wheels_out = 0
-        if not fl_in:
-            wheels_out += 1
-        if not fr_in:
-            wheels_out += 1
-        if not rl_in:
-            wheels_out += 1
-        if not rr_in:
-            wheels_out += 1
+        wheels_out = sum(1 for inside in (fl_in, fr_in, rl_in, rr_in) if not inside)
 
         return WheelFootprint(
             fl_inside=fl_in,
@@ -89,11 +117,10 @@ class GeometryEngine:
             wheels_out_count=wheels_out
         )
 
-    def calculate_margin_cm(self, footprint: WheelFootprint, bbox: List[float]) -> float:
+    def calculate_margin_cm(self, footprint: WheelFootprint, bbox: Optional[List[float]] = None) -> float:
         """
-        Calculates signed margin to boundary in centimeters:
-        Positive (+) = Inside legal boundary (Safe / Borderline legal contact)
-        Negative (-) = All 4 wheels exceeded legal boundary (Violation)
+        Calculates a signed margin to the legal boundary in centimetres.
+        Positive values are inside the legal boundary. Negative values indicate a track-limit violation.
         """
         points = [
             Point(footprint.fl_coords),
@@ -102,30 +129,35 @@ class GeometryEngine:
             Point(footprint.rr_coords)
         ]
 
-        if footprint.wheels_out_count == 4:
-            # All 4 wheels are outside: violation distance is distance of closest outside wheel to boundary line
-            outside_distances = [self.boundary_linestring.distance(pt) for pt in points]
-            closest_outside_px = min(outside_distances) if outside_distances else 0.0
-            return -round(closest_outside_px * self.scale, 2)
-        elif footprint.wheels_out_count > 0:
-            # 1 to 3 wheels out: vehicle still maintains legal contact with remaining inside wheels
-            inside_distances = []
-            if footprint.fl_inside:
-                inside_distances.append(self.boundary_linestring.distance(Point(footprint.fl_coords)))
-            if footprint.fr_inside:
-                inside_distances.append(self.boundary_linestring.distance(Point(footprint.fr_coords)))
-            if footprint.rl_inside:
-                inside_distances.append(self.boundary_linestring.distance(Point(footprint.rl_coords)))
-            if footprint.rr_inside:
-                inside_distances.append(self.boundary_linestring.distance(Point(footprint.rr_coords)))
-            
-            closest_inside_px = min(inside_distances) if inside_distances else 0.0
-            return round(closest_inside_px * self.scale, 2)
-        else:
-            # All 4 wheels inside: minimum distance of any wheel to the boundary
-            distances = [self.boundary_linestring.distance(pt) for pt in points]
-            min_dist_px = min(distances) if distances else 0.0
-            return round(min_dist_px * self.scale, 2)
+        if not points:
+            return 0.0
+
+        inside_points = [
+            pt for pt, inside in (
+                (Point(footprint.fl_coords), footprint.fl_inside),
+                (Point(footprint.fr_coords), footprint.fr_inside),
+                (Point(footprint.rl_coords), footprint.rl_inside),
+                (Point(footprint.rr_coords), footprint.rr_inside),
+            ) if inside
+        ]
+        outside_points = [
+            pt for pt, inside in (
+                (Point(footprint.fl_coords), footprint.fl_inside),
+                (Point(footprint.fr_coords), footprint.fr_inside),
+                (Point(footprint.rl_coords), footprint.rl_inside),
+                (Point(footprint.rr_coords), footprint.rr_inside),
+            ) if not inside
+        ]
+
+        if inside_points:
+            margin_px = min(self.boundary_linestring.distance(pt) for pt in inside_points)
+            return round(margin_px * self.scale, 2)
+
+        if outside_points:
+            margin_px = min(self.boundary_linestring.distance(pt) for pt in outside_points)
+            return -round(margin_px * self.scale, 2)
+
+        return 0.0
 
     def evaluate_state_machine(
         self,
@@ -136,29 +168,20 @@ class GeometryEngine:
         rule_profile: str = "FIA_ALL_FOUR"
     ) -> Tuple[TrackLimitState, int]:
         """
-        Processes temporal state transition for vehicle:
-        SAFE -> BORDERLINE -> VIOLATION -> RECOVERED
-        
-        Rule Profiles:
-        - FIA_ALL_FOUR: Official FIA Sporting Regs Art 33.3 (all 4 wheels completely beyond white line)
-        - MVP_ANY_WHEEL: Prototype mode (any wheel outside triggers violation)
-        
-        Returns:
-            Tuple of (CurrentState, ConsecutiveFramesOutside)
+        Processes a physical state transition for a vehicle approaching or exceeding the legal boundary.
         """
         current_state = self.vehicle_states.get(vehicle_id, TrackLimitState.SAFE)
         outside_count = self.consecutive_outside_counts.get(vehicle_id, 0)
         inside_count = self.consecutive_inside_counts.get(vehicle_id, 0)
 
-        # Determine instantaneous condition based on FIA rule profile
         if rule_profile == "FIA_ALL_FOUR":
-            is_outside = (footprint.wheels_out_count == 4) or (margin_cm < -2.0 and footprint.wheels_out_count >= 4)
-            is_borderline = (footprint.wheels_out_count in (1, 2, 3)) or (0.0 <= margin_cm <= 15.0)
+            is_violation = footprint.wheels_out_count >= 4 or margin_cm <= -2.0
+            is_borderline = footprint.wheels_out_count in (1, 2, 3) or (0.0 <= margin_cm <= 15.0)
         else:
-            is_outside = (footprint.wheels_out_count >= 1) or (margin_cm < 0.0)
-            is_borderline = (0.0 <= margin_cm <= 15.0)
+            is_violation = footprint.wheels_out_count >= 1 or margin_cm < 0.0
+            is_borderline = footprint.wheels_out_count >= 1 or (0.0 <= margin_cm <= 15.0)
 
-        if is_outside:
+        if is_violation:
             outside_count += 1
             inside_count = 0
         else:
@@ -168,29 +191,28 @@ class GeometryEngine:
         self.consecutive_outside_counts[vehicle_id] = outside_count
         self.consecutive_inside_counts[vehicle_id] = inside_count
 
-        # Transition Rules
         new_state = current_state
 
         if current_state == TrackLimitState.SAFE:
-            if is_outside and outside_count >= min_consecutive_violation_frames:
+            if is_violation and outside_count >= min_consecutive_violation_frames:
                 new_state = TrackLimitState.VIOLATION
-            elif is_borderline or (is_outside and outside_count < min_consecutive_violation_frames):
+            elif is_borderline or (is_violation and outside_count < min_consecutive_violation_frames):
                 new_state = TrackLimitState.BORDERLINE
 
         elif current_state == TrackLimitState.BORDERLINE:
-            if is_outside and outside_count >= min_consecutive_violation_frames:
+            if is_violation and outside_count >= min_consecutive_violation_frames:
                 new_state = TrackLimitState.VIOLATION
-            elif not is_outside and not is_borderline and inside_count >= 2:
+            elif not is_violation and inside_count >= 2:
                 new_state = TrackLimitState.SAFE
 
         elif current_state == TrackLimitState.VIOLATION:
-            if not is_outside and inside_count >= 2:
+            if not is_violation and inside_count >= 2:
                 new_state = TrackLimitState.RECOVERED
 
         elif current_state == TrackLimitState.RECOVERED:
-            if not is_outside and inside_count >= 4:
+            if not is_violation and inside_count >= 4:
                 new_state = TrackLimitState.SAFE
-            elif is_outside and outside_count >= min_consecutive_violation_frames:
+            elif is_violation and outside_count >= min_consecutive_violation_frames:
                 new_state = TrackLimitState.VIOLATION
             elif is_borderline:
                 new_state = TrackLimitState.BORDERLINE
