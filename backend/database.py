@@ -356,9 +356,8 @@ def seed_initial_data(conn: sqlite3.Connection):
             )
         )
 
-    # 2. Seed F1 Vehicles emphasizing Haas F1 Team with Nico Hülkenberg, Esteban Ocon & Ollie Bearman
+    # 2. Seed F1 vehicles while keeping the active TGR Haas F1 Team 2026 lineup on the primary track-monitoring path.
     vehicles_data = [
-        (27, 27, "Nico Hülkenberg", "Haas F1 Team", "#E10600"),
         (31, 31, "Esteban Ocon", "TGR Haas F1 Team", "#E10600"),
         (87, 87, "Ollie Bearman", "TGR Haas F1 Team", "#E10600"),
         (1, 1, "Max Verstappen", "Red Bull Racing", "#1E41FF"),

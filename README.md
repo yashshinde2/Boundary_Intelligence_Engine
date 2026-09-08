@@ -8,6 +8,15 @@
 
 TrackShift 2026 combines **Real Race Video Ingestion**, **Vehicle Detection & Tracking**, **High-Frequency Telemetry Fusion**, **Geometric Spatial Containment**, and **Predictive Race-Condition Simulation**:
 
+## 🌍 India Impact Use Cases
+
+The same boundary-containment engine can be deployed in Indian operating environments without new sensor hardware:
+- Urban bus and freight lane compliance using existing CCTV and GPS.
+- Mining and construction haul-road geofencing to detect vehicles leaving safe berm zones.
+- Toll-plaza lane violations using current camera infrastructure and FASTag/GPS cross-checks.
+
+These use cases are consistent with the project brief: measurable operational gain, no new LiDAR requirement, and faster review procedures for high-risk edge cases.
+
 ```text
 Race Video (.mp4) + Telemetry CSV
                  ↓
