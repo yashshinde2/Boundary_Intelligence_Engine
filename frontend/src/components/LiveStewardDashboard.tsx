@@ -38,7 +38,7 @@ export const LiveStewardDashboard: React.FC<LiveStewardDashboardProps> = ({
   const [isPaused, setIsPaused] = useState(false);
   const [showOverlays, setShowOverlays] = useState(true);
   const [showFootprint, setShowFootprint] = useState(true);
-  const [showCompanion, setShowCompanion] = useState(false);
+  const [showCompanion] = useState(false);
   const [recentIncidents, setRecentIncidents] = useState<Incident[]>([]);
   const [adjudicationSuccess, setAdjudicationSuccess] = useState<string | null>(null);
 
