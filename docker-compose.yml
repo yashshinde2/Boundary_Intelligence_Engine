@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: trackshift-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/videos:/app/videos
+      - ./backend/output:/app/output
+      - ./backend/trackshift.db:/app/trackshift.db
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=http://localhost:8000
+        - VITE_WS_URL=ws://localhost:8000
+    container_name: trackshift-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
