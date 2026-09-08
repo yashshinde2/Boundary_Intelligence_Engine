@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import type { 
   FrameAnalysisResult, 
   CornerItem, 
@@ -9,11 +9,7 @@ import {
   Radio, 
   Play, 
   Pause, 
-  Activity,
-  ChevronRight,
-  Crosshair,
-  CheckCircle,
-  XCircle
+  CheckCircle
 } from 'lucide-react';
 import { TelemetryCharts } from './TelemetryCharts';
 import { API_URL, WS_URL } from '../config';
@@ -43,7 +39,7 @@ export const LiveStewardDashboard: React.FC<LiveStewardDashboardProps> = ({
   const [isPaused, setIsPaused] = useState(false);
   const [showOverlays, setShowOverlays] = useState(true);
   const [showFootprint, setShowFootprint] = useState(true);
-  const [showCompanion, setShowCompanion] = useState(true);
+  const [showCompanion, setShowCompanion] = useState(false);
   const [recentIncidents, setRecentIncidents] = useState<Incident[]>([]);
   const [adjudicationSuccess, setAdjudicationSuccess] = useState<string | null>(null);
 
@@ -150,7 +146,7 @@ export const LiveStewardDashboard: React.FC<LiveStewardDashboardProps> = ({
       });
 
       if (res.ok) {
-        setAdjudicationSuccess(action === 'CONFIRM' ? 'LAP DELETED • OFFENCE CONFIRMED' : 'INCIDENT DISMISSED');
+        setAdjudicationSuccess(action === 'CONFIRM' ? 'LAP DELETED â€¢ OFFENCE CONFIRMED' : 'INCIDENT DISMISSED');
         fetchRecentIncidents();
         setTimeout(() => setAdjudicationSuccess(null), 4000);
       }
@@ -265,479 +261,191 @@ export const LiveStewardDashboard: React.FC<LiveStewardDashboardProps> = ({
   }, [frameData, showOverlays, showFootprint, showCompanion, corners]);
 
   const isRealVideo = mode === 'live_analysis' && Boolean(activeVideoId);
-  const coords = frameData?.exact_coordinates;
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
-      {/* Top Status Bar: Live State Machine Alert */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {/* State Machine Status */}
-        <div className={`p-4 rounded-lg f1-card flex items-center justify-between border-l-4 ${
+    <div className="p-5 max-w-7xl mx-auto space-y-5">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+        <div className={`rounded-xl border p-3 ${
           frameData?.state === 'VIOLATION'
-            ? 'border-l-[#E10600] f1-card-glow-red bg-red-950/20'
+            ? 'border-red-500/50 bg-red-950/20'
             : frameData?.state === 'BORDERLINE'
-            ? 'border-l-[#FFB800] f1-card-glow-amber bg-amber-950/20'
+            ? 'border-amber-500/50 bg-amber-950/20'
             : frameData?.state === 'RECOVERED'
-            ? 'border-l-[#00E5FF] f1-card-glow-cyan bg-cyan-950/20'
-            : 'border-l-[#00E676] f1-card-glow-green bg-emerald-950/20'
+            ? 'border-cyan-500/50 bg-cyan-950/20'
+            : 'border-emerald-500/40 bg-emerald-950/20'
         }`}>
-          <div>
-            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
-              Spatial Compliance State
-            </span>
-            <div className={`text-xl font-black italic tracking-wider mt-0.5 ${
-              frameData?.state === 'VIOLATION'
-                ? 'text-[#E10600] animate-pulse'
-                : frameData?.state === 'BORDERLINE'
-                ? 'text-[#FFB800]'
-                : frameData?.state === 'RECOVERED'
-                ? 'text-[#00E5FF]'
-                : 'text-[#00E676]'
-            }`}>
-              {frameData?.state ?? 'SAFE'}
-            </div>
-          </div>
-          <div className="text-right">
-            <span className="text-[10px] text-gray-400 uppercase block">Rule Profile</span>
-            <span className="text-xs font-mono font-bold text-[#00E5FF]">
-              FIA_ALL_FOUR
-            </span>
+          <div className="text-[10px] uppercase tracking-[0.18em] text-gray-400">State</div>
+          <div className={`mt-1 text-xl font-black ${
+            frameData?.state === 'VIOLATION' ? 'text-red-500' : frameData?.state === 'BORDERLINE' ? 'text-amber-400' : frameData?.state === 'RECOVERED' ? 'text-cyan-400' : 'text-emerald-400'
+          }`}>{frameData?.state ?? 'SAFE'}</div>
+        </div>
+
+        <div className="rounded-xl border border-[#222232] bg-[#101018] p-3">
+          <div className="text-[10px] uppercase tracking-[0.18em] text-gray-400">Wheels out</div>
+          <div className="mt-1 text-xl font-black font-mono text-white">{frameData?.footprint?.wheels_out_count ?? 0}/4</div>
+        </div>
+
+        <div className="rounded-xl border border-[#222232] bg-[#101018] p-3">
+          <div className="text-[10px] uppercase tracking-[0.18em] text-gray-400">Margin</div>
+          <div className={`mt-1 text-xl font-black font-mono ${
+            (frameData?.margin_to_boundary_cm ?? 0) < 0 ? 'text-red-500' : (frameData?.margin_to_boundary_cm ?? 0) <= 15 ? 'text-amber-400' : 'text-emerald-400'
+          }`}>
+            {(frameData?.margin_to_boundary_cm ?? 0) > 0 ? '+' : ''}{frameData?.margin_to_boundary_cm ?? 0}cm
           </div>
         </div>
 
-        {/* Wheels Out Indicator (0/4 to 4/4) */}
-        <div className="p-4 rounded-lg f1-card flex items-center justify-between">
-          <div>
-            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
-              Wheels Beyond Boundary
-            </span>
-            <div className={`text-xl font-black font-mono mt-0.5 ${
-              (frameData?.footprint?.wheels_out_count ?? 0) === 4
-                ? 'text-[#E10600]'
-                : (frameData?.footprint?.wheels_out_count ?? 0) > 0
-                ? 'text-[#FFB800]'
-                : 'text-[#00E676]'
-            }`}>
-              {frameData?.footprint?.wheels_out_count ?? 0} / 4 OUT
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-1 bg-[#0d0d12] p-1.5 rounded border border-[#232332]">
-            <span className={`w-2.5 h-2.5 rounded-sm ${frameData?.footprint?.fl_inside ? 'bg-[#00E676]' : 'bg-[#E10600]'}`} title="FL" />
-            <span className={`w-2.5 h-2.5 rounded-sm ${frameData?.footprint?.fr_inside ? 'bg-[#00E676]' : 'bg-[#E10600]'}`} title="FR" />
-            <span className={`w-2.5 h-2.5 rounded-sm ${frameData?.footprint?.rl_inside ? 'bg-[#00E676]' : 'bg-[#E10600]'}`} title="RL" />
-            <span className={`w-2.5 h-2.5 rounded-sm ${frameData?.footprint?.rr_inside ? 'bg-[#00E676]' : 'bg-[#E10600]'}`} title="RR" />
-          </div>
-        </div>
-
-        {/* Margin to Boundary */}
-        <div className="p-4 rounded-lg f1-card flex items-center justify-between">
-          <div>
-            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
-              Boundary Margin
-            </span>
-            <div className={`text-xl font-black font-mono mt-0.5 ${
-              (frameData?.margin_to_boundary_cm ?? 0) < 0
-                ? 'text-[#E10600]'
-                : (frameData?.margin_to_boundary_cm ?? 0) <= 15
-                ? 'text-[#FFB800]'
-                : 'text-[#00E676]'
-            }`}>
-              {(frameData?.margin_to_boundary_cm ?? 0) > 0 ? '+' : ''}
-              {frameData?.margin_to_boundary_cm ?? 0} <span className="text-xs font-normal text-gray-400">cm</span>
-            </div>
-          </div>
-          <span className="text-[10px] px-2 py-1 rounded bg-[#101018] text-gray-300 font-mono border border-[#242436]">
-            {(frameData?.margin_to_boundary_cm ?? 0) < 0 ? 'EXCURSION' : 'LEGAL TRACK'}
-          </span>
-        </div>
-
-        {/* Overall Confidence Score */}
-        <div className="p-4 rounded-lg f1-card flex items-center justify-between">
-          <div>
-            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
-              System Confidence
-            </span>
-            <div className="text-xl font-black font-mono text-[#00E5FF] mt-0.5">
-              {frameData?.confidence?.confidence_percentage ?? 97.8}%
-            </div>
-          </div>
-          <span className="text-[10px] px-2 py-1 rounded bg-cyan-950/40 text-[#00E5FF] font-bold border border-cyan-800">
-            {frameData?.confidence?.verdict ?? 'HIGH CONFIDENCE'}
-          </span>
+        <div className="rounded-xl border border-[#222232] bg-[#101018] p-3">
+          <div className="text-[10px] uppercase tracking-[0.18em] text-gray-400">Confidence</div>
+          <div className="mt-1 text-xl font-black font-mono text-cyan-400">{frameData?.confidence?.confidence_percentage ?? 97.8}%</div>
         </div>
       </div>
 
-      {/* Adjudication Success Alert */}
       {adjudicationSuccess && (
-        <div className="bg-emerald-600/90 text-white px-4 py-2.5 rounded-lg flex items-center justify-between shadow-xl border border-emerald-400 animate-in fade-in">
-          <div className="flex items-center gap-2 font-mono font-bold text-xs uppercase">
-            <CheckCircle className="w-4 h-4" />
-            {adjudicationSuccess}
-          </div>
-          <span className="text-[10px] font-mono opacity-80">FIA Race Control Logged</span>
+        <div className="rounded-lg border border-emerald-500/60 bg-emerald-600/15 px-4 py-2 text-sm font-medium text-emerald-200 flex items-center justify-between">
+          <span className="flex items-center gap-2"><CheckCircle className="w-4 h-4" />{adjudicationSuccess}</span>
+          <span className="text-[10px] uppercase tracking-[0.2em] text-emerald-300/80">FIA logged</span>
         </div>
       )}
 
-      {/* Main Video & Telemetry Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Live Video Canvas Player (8 cols) */}
-        <div className="lg:col-span-8 space-y-4">
-          <div className="f1-card p-4 space-y-3">
-            {/* Player Toolbar */}
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <span className="flex items-center gap-1.5 text-xs font-mono font-bold text-white">
-                  <Radio className="w-3.5 h-3.5 text-[#E10600] animate-pulse" />
-                  {isRealVideo ? 'LIVE VIEW • UPLOADED VIDEO' : 'LIVE VIEW • 2024 AUSTRIAN GP RACE DAY'}
-                </span>
-                <span className="text-[11px] font-mono text-gray-400 bg-[#0f0f15] px-2 py-0.5 rounded border border-[#222232]">
-                  {frameData?.timestamp_str ?? '00:32:17.40'} • Lap {frameData?.lap ?? 12}
-                </span>
-                {frameData?.data_source === 'REAL_F1_AUSTRIAN_GP_2024_RACEDAY' && (
-                  <span className="hidden sm:inline-flex text-[10px] font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800 font-bold items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                    FIA OFFICIAL RACE DAY (SESSION 9550)
-                  </span>
-                )}
-              </div>
-
-              {/* 10 Corners Switcher */}
-              <div className="flex items-center gap-1.5 overflow-x-auto max-w-full">
-                {corners.map((c) => (
-                  <button
-                    key={c.corner_id}
-                    onClick={() => onSelectCorner(c.corner_id)}
-                    className={`px-2 py-1 rounded text-[10px] font-mono font-bold transition-all border ${
-                      selectedCornerId === c.corner_id
-                        ? 'bg-[#E10600] text-white border-red-500 shadow-sm shadow-red-900/40'
-                        : 'bg-[#101016] text-gray-400 border-[#222230] hover:text-white'
-                    }`}
-                  >
-                    T{c.turn_number}
-                  </button>
-                ))}
-              </div>
-
-              {/* Toggles & Controls */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setShowOverlays(!showOverlays)}
-                  className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all border ${
-                    showOverlays ? 'bg-[#00E5FF]/20 text-[#00E5FF] border-[#00E5FF]/50' : 'bg-[#121218] text-gray-400 border-[#262638]'
-                  }`}
-                >
-                  Boundary
-                </button>
-                <button
-                  onClick={() => setShowFootprint(!showFootprint)}
-                  className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all border ${
-                    showFootprint ? 'bg-[#00E676]/20 text-[#00E676] border-[#00E676]/50' : 'bg-[#121218] text-gray-400 border-[#262638]'
-                  }`}
-                >
-                  4 Wheels
-                </button>
-                <button
-                  onClick={() => setShowCompanion(!showCompanion)}
-                  className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all border ${
-                    showCompanion ? 'bg-[#00E5FF]/20 text-[#00E5FF] border-[#00E5FF]/50' : 'bg-[#121218] text-gray-400 border-[#262638]'
-                  }`}
-                >
-                  #87 Safe Car
-                </button>
-                <button
-                  onClick={() => setIsPaused(!isPaused)}
-                  className="p-1.5 rounded bg-[#1e1e2c] text-white hover:bg-[#2c2c40] border border-[#32324a]"
-                  title={isPaused ? 'Resume Stream' : 'Pause Stream'}
-                >
-                  {isPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
-                </button>
-              </div>
+      <div className="grid grid-cols-1 xl:grid-cols-[1.6fr_0.9fr] gap-5">
+        <section className="rounded-2xl border border-[#222232] bg-[#0d0d13] p-3">
+          <div className="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-[0.18em] text-gray-300">
+              <Radio className="w-3.5 h-3.5 text-red-500" />
+              {isRealVideo ? 'LIVE VIDEO' : 'SIM FEED'}
             </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {corners.map((c) => (
+                <button
+                  key={c.corner_id}
+                  onClick={() => onSelectCorner(c.corner_id)}
+                  className={`px-2 py-1 rounded text-[10px] font-mono font-bold border ${
+                    selectedCornerId === c.corner_id
+                      ? 'bg-red-600 text-white border-red-500'
+                      : 'bg-[#101018] text-gray-400 border-[#222232]'
+                  }`}
+                >
+                  T{c.turn_number}
+                </button>
+              ))}
+            </div>
+          </div>
 
-            {/* Video Canvas */}
-            <div className="relative rounded-lg overflow-hidden border border-[#222230] bg-black aspect-video flex items-center justify-center">
-              <canvas
-                ref={canvasRef}
-                className="w-full h-full object-contain"
-              />
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-gray-400">
+              {frameData?.timestamp_str ?? '00:32:17.40'} • Lap {frameData?.lap ?? 12}
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setShowOverlays(!showOverlays)} className={`px-2 py-1 rounded text-[10px] ${showOverlays ? 'bg-cyan-500/15 text-cyan-300' : 'bg-[#121218] text-gray-400'}`}>Boundary</button>
+              <button onClick={() => setShowFootprint(!showFootprint)} className={`px-2 py-1 rounded text-[10px] ${showFootprint ? 'bg-emerald-500/15 text-emerald-300' : 'bg-[#121218] text-gray-400'}`}>Footprint</button>
+              <button onClick={() => setShowCompanion(!showCompanion)} className={`px-2 py-1 rounded text-[10px] ${showCompanion ? 'bg-blue-500/15 text-blue-300' : 'bg-[#121218] text-gray-400'}`}>Safe car</button>
+              <button onClick={() => setIsPaused(!isPaused)} className="p-1.5 rounded border border-[#2b2b3a] bg-[#181821] text-white">{isPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}</button>
+            </div>
+          </div>
 
-              {/* On-Canvas Incident Flag Banner */}
-              {frameData?.state === 'VIOLATION' && (
-                <div className="absolute top-4 left-4 right-4 bg-red-600/95 backdrop-blur-md text-white px-4 py-2.5 rounded-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-2 shadow-2xl border border-red-400 animate-bounce">
-                  <div className="flex items-center gap-2.5">
-                    <ShieldAlert className="w-5 h-5 shrink-0" />
+          <div className="relative overflow-hidden rounded-xl border border-[#222232] bg-black aspect-video">
+            <canvas ref={canvasRef} className="h-full w-full object-contain" />
+            {frameData?.state === 'VIOLATION' && (
+              <div className="absolute inset-x-4 top-4 rounded-lg border border-red-400 bg-red-600/90 p-3 text-white shadow-2xl">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4" />
                     <div>
-                      <span className="text-xs font-black uppercase tracking-wider block">
-                        FLAGGED TRACK LIMIT VIOLATION (FIA_ALL_FOUR: 4/4 OUT)
-                      </span>
-                      <span className="text-[11px] text-red-100 font-mono block">
-                        {frameData.official_fia_notice 
-                          ? frameData.official_fia_notice 
-                          : `${frameData.driver_name} • ${frameData.margin_to_boundary_cm}cm beyond limit • ${frameData.consecutive_outside} consecutive frames`}
-                      </span>
+                      <div className="text-[10px] font-bold uppercase tracking-[0.2em]">Track limit violation</div>
+                      <div className="text-[11px] font-mono text-red-100">{frameData.driver_name} • {frameData.margin_to_boundary_cm}cm • {frameData.consecutive_outside} frames</div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={() => handleQuickAdjudicate('CONFIRM')}
-                      className="px-3 py-1 bg-white text-red-600 font-bold text-xs rounded shadow hover:bg-gray-100"
-                    >
-                      Delete Lap
-                    </button>
-                    <button
-                      onClick={() => onOpenIncidentReview(frameData.car_number === 27 ? 'AUT2024-RACE-0027' : 'AUT2024-RACE-0031')}
-                      className="px-3 py-1 bg-red-950 text-white font-bold text-xs rounded border border-red-300 hover:bg-red-900"
-                    >
-                      Full Dossier
-                    </button>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => handleQuickAdjudicate('CONFIRM')} className="rounded bg-white px-2 py-1 text-[10px] font-bold text-red-700">Delete lap</button>
+                    <button onClick={() => onOpenIncidentReview(frameData.car_number === 27 ? 'AUT2024-RACE-0027' : 'AUT2024-RACE-0031')} className="rounded border border-red-200 bg-red-900 px-2 py-1 text-[10px] font-bold">Dossier</button>
                   </div>
                 </div>
-              )}
+              </div>
+            )}
+          </div>
+        </section>
+
+        <aside className="space-y-4">
+          <div className="rounded-2xl border border-[#222232] bg-[#0d0d13] p-4">
+            <div className="mb-3 flex items-center justify-between border-b border-[#1f1f2c] pb-2">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-gray-400">Compliance summary</div>
+              <span className="text-[10px] font-mono text-cyan-300">FIA_ALL_FOUR</span>
+            </div>
+            <div className="space-y-2 text-xs text-gray-300">
+              <div className="flex justify-between"><span>Driver</span><span className="font-mono text-white">#{frameData?.vehicle_id ?? selectedDriverNumber}</span></div>
+              <div className="flex justify-between"><span>Corner</span><span className="font-mono text-white">T{corners.find(c => c.corner_id === selectedCornerId)?.turn_number ?? '9'}</span></div>
+              <div className="flex justify-between"><span>Boundary</span><span className={((frameData?.margin_to_boundary_cm ?? 0) < 0 ? 'text-red-400' : 'text-emerald-400')}>{(frameData?.margin_to_boundary_cm ?? 0) < 0 ? 'Excursion' : 'Legal'}</span></div>
+            </div>
+            <div className="mt-3 grid grid-cols-4 gap-2">
+              {[
+                ['FL', frameData?.footprint?.fl_inside],
+                ['FR', frameData?.footprint?.fr_inside],
+                ['RL', frameData?.footprint?.rl_inside],
+                ['RR', frameData?.footprint?.rr_inside],
+              ].map(([wheel, inside]) => (
+                <div key={String(wheel)} className="rounded-md border border-[#222232] bg-[#101018] p-2 text-center">
+                  <div className="text-[9px] uppercase tracking-[0.16em] text-gray-400">{wheel}</div>
+                  <div className={`mt-1 text-xs font-bold ${inside ? 'text-emerald-400' : 'text-red-400'}`}>{inside ? 'IN' : 'OUT'}</div>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Dedicated Exact Coordinates & 4-Wheel Contact Footprint Inspector */}
-          <div className="f1-card p-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-[#232332] pb-2.5">
-              <div className="flex items-center gap-2">
-                <Crosshair className="w-4 h-4 text-[#00E5FF]" />
-                <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-                  Exact Spatial Coordinates & 4-Wheel Footprint Matrix
-                </h3>
-              </div>
-              <span className="text-[10px] font-mono text-[#00E5FF]">
-                FIA Real-Time Spatial Verification
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Box 1: Position & Heading */}
-              <div className="bg-[#0f0f16] p-3 rounded-lg border border-[#222232] space-y-1.5 text-xs font-mono">
-                <span className="text-[10px] text-gray-400 uppercase font-bold block">Vehicle Position</span>
-                <div className="text-gray-300 flex justify-between">
-                  <span>Pixel Center:</span>
-                  <span className="text-white font-bold">({frameData?.center[0] ?? 0}, {frameData?.center[1] ?? 0})</span>
-                </div>
-                <div className="text-gray-300 flex justify-between">
-                  <span>Track Coords:</span>
-                  <span className="text-[#00E5FF] font-bold">[{coords?.track_coords_m[0] ?? 0}m, {coords?.track_coords_m[1] ?? 0}m]</span>
-                </div>
-                <div className="text-gray-300 flex justify-between">
-                  <span>Heading Angle:</span>
-                  <span className="text-white font-bold">{coords?.heading_deg ?? frameData?.heading_deg ?? 0}°</span>
-                </div>
-                <div className="text-gray-300 flex justify-between">
-                  <span>Bounding Box:</span>
-                  <span className="text-gray-400">[{frameData?.bbox.join(', ') ?? '0,0,0,0'}]</span>
-                </div>
-              </div>
-
-              {/* Box 2: 4 Wheel Contact Patches Status */}
-              <div className="bg-[#0f0f16] p-3 rounded-lg border border-[#222232] space-y-1.5 text-xs font-mono md:col-span-2">
-                <span className="text-[10px] text-gray-400 uppercase font-bold block">4-Tyre Contact Patches vs White Line</span>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
-                  <div className="flex justify-between items-center border-b border-[#1c1c28] pb-1">
-                    <span className="flex items-center gap-1.5">
-                      <span className={`w-2 h-2 rounded-full ${frameData?.footprint?.fl_inside ? 'bg-[#00E676]' : 'bg-[#E10600]'}`} />
-                      Front-Left (FL):
-                    </span>
-                    <span className={frameData?.footprint?.fl_inside ? 'text-[#00E676]' : 'text-[#E10600] font-bold'}>
-                      ({frameData?.footprint?.fl_coords[0]}, {frameData?.footprint?.fl_coords[1]}) • {frameData?.footprint?.fl_inside ? 'INSIDE' : 'OUT'}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center border-b border-[#1c1c28] pb-1">
-                    <span className="flex items-center gap-1.5">
-                      <span className={`w-2 h-2 rounded-full ${frameData?.footprint?.fr_inside ? 'bg-[#00E676]' : 'bg-[#E10600]'}`} />
-                      Front-Right (FR):
-                    </span>
-                    <span className={frameData?.footprint?.fr_inside ? 'text-[#00E676]' : 'text-[#E10600] font-bold'}>
-                      ({frameData?.footprint?.fr_coords[0]}, {frameData?.footprint?.fr_coords[1]}) • {frameData?.footprint?.fr_inside ? 'INSIDE' : 'OUT'}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center pt-1">
-                    <span className="flex items-center gap-1.5">
-                      <span className={`w-2 h-2 rounded-full ${frameData?.footprint?.rl_inside ? 'bg-[#00E676]' : 'bg-[#E10600]'}`} />
-                      Rear-Left (RL):
-                    </span>
-                    <span className={frameData?.footprint?.rl_inside ? 'text-[#00E676]' : 'text-[#E10600] font-bold'}>
-                      ({frameData?.footprint?.rl_coords[0]}, {frameData?.footprint?.rl_coords[1]}) • {frameData?.footprint?.rl_inside ? 'INSIDE' : 'OUT'}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center pt-1">
-                    <span className="flex items-center gap-1.5">
-                      <span className={`w-2 h-2 rounded-full ${frameData?.footprint?.rr_inside ? 'bg-[#00E676]' : 'bg-[#E10600]'}`} />
-                      Rear-Right (RR):
-                    </span>
-                    <span className={frameData?.footprint?.rr_inside ? 'text-[#00E676]' : 'text-[#E10600] font-bold'}>
-                      ({frameData?.footprint?.rr_coords[0]}, {frameData?.footprint?.rr_coords[1]}) • {frameData?.footprint?.rr_inside ? 'INSIDE' : 'OUT'}
-                    </span>
-                  </div>
-                </div>
-              </div>
+          <div className="rounded-2xl border border-[#222232] bg-[#0d0d13] p-4">
+            <div className="mb-3 text-[10px] uppercase tracking-[0.18em] text-gray-400">Steward action</div>
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => handleQuickAdjudicate('CONFIRM')} className="rounded-md bg-red-600 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-white">Delete lap</button>
+              <button onClick={() => handleQuickAdjudicate('DISMISS')} className="rounded-md border border-emerald-700 bg-emerald-900/20 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-300">Dismiss</button>
             </div>
           </div>
 
-          {/* Telemetry Waveform Charts */}
-          {frameData?.telemetry && (
-            <TelemetryCharts currentTelemetry={frameData.telemetry} />
-          )}
-        </div>
-
-        {/* Right Column: Multi-Factor Explainability & Incident Log (4 cols) */}
-        <div className="lg:col-span-4 space-y-4">
-          {/* Card 1: Steward Rapid Ruling Actions */}
-          <div className="f1-card p-5 space-y-3.5 border-t-4 border-t-[#E10600]">
-            <div className="flex items-center justify-between border-b border-[#232332] pb-2">
-              <span className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-                Steward Live Adjudication
-              </span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-950 text-red-400 font-mono">
-                Active Session
-              </span>
-            </div>
-
-            <p className="text-xs text-gray-300">
-              Review real-time camera overlays and spatial telemetry. Issue ruling on current vehicle:
-            </p>
-
-            <div className="grid grid-cols-2 gap-2.5">
-              <button
-                onClick={() => handleQuickAdjudicate('CONFIRM')}
-                className="flex items-center justify-center gap-1.5 py-2 px-3 rounded bg-[#E10600] hover:bg-red-700 text-white font-bold text-xs font-mono shadow-md transition-all"
-              >
-                <XCircle className="w-4 h-4" />
-                DELETE LAP
-              </button>
-              <button
-                onClick={() => handleQuickAdjudicate('DISMISS')}
-                className="flex items-center justify-center gap-1.5 py-2 px-3 rounded bg-[#1e1e2d] hover:bg-[#28283c] text-emerald-400 border border-emerald-800 font-bold text-xs font-mono shadow-md transition-all"
-              >
-                <CheckCircle className="w-4 h-4" />
-                DISMISS
-              </button>
-            </div>
-          </div>
-
-          {/* Card 2: 5-Factor Explainable Confidence Breakdown */}
-          <div className="f1-card p-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-[#232332] pb-2.5">
-              <div className="flex items-center gap-2">
-                <ShieldAlert className="w-4 h-4 text-[#00E5FF]" />
-                <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-                  Explainable Confidence Signals
-                </h3>
-              </div>
-              <span className="text-[10px] font-mono text-[#00E5FF]">
-                Multi-Factor Model
-              </span>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <div className="space-y-1">
-                <div className="flex justify-between text-gray-300">
-                  <span className="font-medium">1. YOLO Vehicle Detection (30%)</span>
-                  <span className="font-mono text-white">{(frameData?.confidence?.detection ?? 0.98) * 100}%</span>
-                </div>
-                <div className="w-full bg-[#1b1b26] h-1.5 rounded-full overflow-hidden">
-                  <div className="bg-[#00E5FF] h-full rounded-full" style={{ width: `${(frameData?.confidence?.detection ?? 0.98) * 100}%` }} />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex justify-between text-gray-300">
-                  <span className="font-medium">2. ByteTrack Spatial Continuity (20%)</span>
-                  <span className="font-mono text-white">{(frameData?.confidence?.tracking ?? 0.97) * 100}%</span>
-                </div>
-                <div className="w-full bg-[#1b1b26] h-1.5 rounded-full overflow-hidden">
-                  <div className="bg-[#00E5FF] h-full rounded-full" style={{ width: `${(frameData?.confidence?.tracking ?? 0.97) * 100}%` }} />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex justify-between text-gray-300">
-                  <span className="font-medium">3. Boundary Geometry Clarity (25%)</span>
-                  <span className="font-mono text-white">{(frameData?.confidence?.boundary_evidence ?? 0.99) * 100}%</span>
-                </div>
-                <div className="w-full bg-[#1b1b26] h-1.5 rounded-full overflow-hidden">
-                  <div className="bg-[#00E676] h-full rounded-full" style={{ width: `${(frameData?.confidence?.boundary_evidence ?? 0.99) * 100}%` }} />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex justify-between text-gray-300">
-                  <span className="font-medium">4. Temporal Frame Stability (15%)</span>
-                  <span className="font-mono text-white">{(frameData?.confidence?.temporal_evidence ?? 0.96) * 100}%</span>
-                </div>
-                <div className="w-full bg-[#1b1b26] h-1.5 rounded-full overflow-hidden">
-                  <div className="bg-[#FFB800] h-full rounded-full" style={{ width: `${(frameData?.confidence?.temporal_evidence ?? 0.96) * 100}%` }} />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex justify-between text-gray-300">
-                  <span className="font-medium">5. Telemetry Dynamics Fusion (10%)</span>
-                  <span className="font-mono text-white">{(frameData?.confidence?.telemetry_evidence ?? 0.95) * 100}%</span>
-                </div>
-                <div className="w-full bg-[#1b1b26] h-1.5 rounded-full overflow-hidden">
-                  <div className="bg-[#E10600] h-full rounded-full" style={{ width: `${(frameData?.confidence?.telemetry_evidence ?? 0.95) * 100}%` }} />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Card 3: Recent Incident Queue */}
-          <div className="f1-card p-5 space-y-3">
-            <div className="flex items-center justify-between border-b border-[#232332] pb-2.5">
-              <div className="flex items-center gap-2">
-                <Activity className="w-4 h-4 text-[#FFB800]" />
-                <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-                  Incident Review Queue
-                </h3>
-              </div>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-950 text-red-400 font-mono">
-                {recentIncidents.filter(i => i.status === 'PENDING_REVIEW').length} Pending
-              </span>
-            </div>
-
-            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-              {recentIncidents.map((inc) => (
-                <div
-                  key={inc.incident_id}
-                  onClick={() => onOpenIncidentReview(inc.incident_id)}
-                  className="bg-[#0f0f16] hover:bg-[#181824] p-3 rounded border border-[#222232] cursor-pointer transition-all flex items-center justify-between group"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-white text-xs">
-                        {inc.incident_id}
-                      </span>
-                      <span className={`px-1.5 py-0.2 text-[9px] font-bold rounded uppercase ${
-                        inc.status === 'CONFIRMED'
-                          ? 'bg-red-950 text-red-400 border border-red-800'
-                          : inc.status === 'DISMISSED'
-                          ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-                          : 'bg-amber-950 text-amber-400 border border-amber-800'
-                      }`}>
-                        {inc.status.replace('_', ' ')}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-gray-400">
-                      Lap {inc.lap} • Car #{inc.vehicle_id} ({inc.driver_name ?? `Car #${inc.vehicle_id}`}) • {inc.wheels_out}/4 Out ({inc.min_margin_cm}cm)
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1 text-gray-400 group-hover:text-white">
-                    <span className="text-[11px] font-mono">{inc.confidence.confidence_percentage}%</span>
-                    <ChevronRight className="w-4 h-4" />
+          <div className="rounded-2xl border border-[#222232] bg-[#0d0d13] p-4">
+            <div className="mb-3 text-[10px] uppercase tracking-[0.18em] text-gray-400">Signal confidence</div>
+            <div className="space-y-3 text-[10px]">
+              {[
+                ['Detection', frameData?.confidence?.detection ?? 0.98, 'bg-cyan-400'],
+                ['Tracking', frameData?.confidence?.tracking ?? 0.97, 'bg-blue-400'],
+                ['Boundary', frameData?.confidence?.boundary_evidence ?? 0.99, 'bg-emerald-400'],
+              ].map(([label, value, color]) => (
+                <div key={label as string}>
+                  <div className="mb-1 flex justify-between text-gray-300"><span>{label}</span><span className="font-mono text-white">{(Number(value) * 100).toFixed(0)}%</span></div>
+                  <div className="h-1.5 rounded-full bg-[#181821]">
+                    <div className={`h-full rounded-full ${color}`} style={{ width: `${Number(value) * 100}%` }} />
                   </div>
                 </div>
               ))}
             </div>
           </div>
-        </div>
+
+          <div className="rounded-2xl border border-[#222232] bg-[#0d0d13] p-4">
+            <div className="mb-3 flex items-center justify-between border-b border-[#1f1f2c] pb-2">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-gray-400">Incident queue</div>
+              <span className="text-[10px] font-mono text-amber-300">{recentIncidents.filter(i => i.status === 'PENDING_REVIEW').length} pending</span>
+            </div>
+            {recentIncidents.slice(0, 3).map((inc) => (
+              <button
+                key={inc.incident_id}
+                onClick={() => onOpenIncidentReview(inc.incident_id)}
+                className="mb-2 block w-full rounded-lg border border-[#222232] bg-[#101018] p-2 text-left hover:border-red-600/50"
+              >
+                <div className="flex justify-between text-[10px] text-gray-300">
+                  <span className="font-mono">{inc.incident_id}</span>
+                  <span className="text-red-400">{inc.status.replace('_', ' ')}</span>
+                </div>
+                <div className="mt-1 text-[11px] text-gray-400">Lap {inc.lap} • Car #{inc.vehicle_id} • {inc.min_margin_cm}cm</div>
+              </button>
+            ))}
+          </div>
+        </aside>
       </div>
+
+      {frameData?.telemetry && (
+        <div className="rounded-2xl border border-[#222232] bg-[#0d0d13] p-3">
+          <TelemetryCharts currentTelemetry={frameData.telemetry} />
+        </div>
+      )}
     </div>
   );
 };
+
+
